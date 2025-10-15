@@ -9,34 +9,32 @@ import Notification from '../Notification/Notification';
 import { useWebSocket } from '../../hooks/useWebsocket';
 import { useNotificationContext } from '../../hooks/useNotificationContext';
 import Header from './Header';
+import MenuIcon from '@mui/icons-material/Menu';
+import { IconButton, Drawer } from '@mui/material';
 
 const HomeLayout = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+  
   const [isNotify, setIsNotify] = useState(false);
+  const [showMobileNav, setShowMobileNav] = useState(false);
+  
   const { sendNewMessage } = useChatContext();
   const { addNewNotification } = useNotificationContext();
   const auth = useSelector((store) => store.auth);
-  const dispatch = useDispatch();
-  const [showMobileNav, setShowMobileNav] = useState(false);
 
-  const handleHamburgerClick = (e) => {
-    e.stopPropagation();
-    setShowMobileNav(true);
-  };
-
-  const handleCloseMobileNav = (e) => {
-    e.stopPropagation();
-    setShowMobileNav(false);
-  };
-
-  const isCollapsed = ['/messages', '/friend'].some((path) => location.pathname.startsWith(path));
+  const isCollapsed = useMemo(
+    () => ['/messages', '/friend'].some((path) => location.pathname.startsWith(path)),
+    [location.pathname]
+  );
 
   const handleNotify = (status) => setIsNotify(status);
-  const handleCloseNotify = () => isNotify && setIsNotify(false);
+  const handleCloseNotify = () => setIsNotify(false);
+  const toggleMobileNav = () => setShowMobileNav((prev) => !prev);
 
   const { disconnect } = useWebSocket();
   const { resetChat } = useChatContext();
-  const navigate = useNavigate();
 
   const channels = useMemo(
     () => [
@@ -57,7 +55,7 @@ const HomeLayout = () => {
         callback: (listUser) => dispatch(updateUserListStatus(JSON.parse(listUser.body))),
       },
     ],
-    [auth?.user, dispatch, sendNewMessage, addNewNotification]
+    [auth?.user?.id, dispatch, sendNewMessage, addNewNotification]
   );
 
   useWebSocket({
@@ -76,132 +74,88 @@ const HomeLayout = () => {
     if (auth?.jwt) dispatch(getProfileByJwt());
   }, [auth?.jwt, dispatch]);
 
-  useEffect(() => {
-    console.log('isCollapsed:', isCollapsed, 'Path:', location.pathname);
-  }, [isCollapsed, location.pathname]);
-
   return (
-    <div onClick={handleCloseNotify} className="min-h-screen bg-gray-100">
-      {/* Header */}
+    <div className="min-h-screen bg-gray-50">
+      {/* Header - Fixed */}
       <Header user={auth.user} handleLogout={handleLogout} />
 
-      {/* Hamburger button for md and below */}
-      <div className="block md:hidden px-2 py-1">
-        <button onClick={handleHamburgerClick}>
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-6 w-6 text-gray-800"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
+      {/* Mobile Menu Button */}
+      <div className="md:hidden fixed bottom-4 right-4 z-40">
+        <IconButton
+          onClick={toggleMobileNav}
+          className="bg-blue-500 text-white shadow-lg hover:bg-blue-600"
+          size="large"
+          sx={{
+            backgroundColor: '#3B82F6',
+            color: 'white',
+            '&:hover': { backgroundColor: '#2563EB' }
+          }}
+        >
+          <MenuIcon />
+        </IconButton>
       </div>
 
-      {/* Main layout */}
-      <div className="mx-auto px-2 sm:px-3 lg:px-8">
-        <div className="flex flex-row min-h-[calc(100vh-4rem)] gap-4">
-          {/* Navigation: Hidden on md and below, visible on lg */}
-          <div
-            className={`hidden md:block lg:${
-              isCollapsed ? 'w-1/12' : 'w-3/12'
-            } min-h-ful rounded-lg`}
-          >
-            <Navigation
-              isCollapsed={isCollapsed}
-              isNotify={isNotify}
-              handleNotify={handleNotify}
-              handleLogout={handleLogout}
-              onTabClick={handleCloseMobileNav}
-            />
-          </div>
+      {/* Main Container */}
+      <div className="pt-4">
+        <div className={`${isCollapsed ? 'max-w-full' : 'max-w-[1400px]'} mx-auto px-4`}>
+          <div className="flex gap-4 py-4">
+            
+            {/* Left Sidebar - Navigation */}
+            <div className={`hidden md:flex ${isCollapsed ? 'w-20' : 'w-64'} flex-shrink-0`}>
+              <div className="sticky top-20 w-full">
+                <Navigation
+                  isCollapsed={isCollapsed}
+                  isNotify={isNotify}
+                  handleNotify={handleNotify}
+                />
+              </div>
+            </div>
 
-          {/* Main Content */}
-          <div
-            className={`w-full md:w-8/12 lg:${
-              isCollapsed ? 'w-11/12' : 'w-7/12'
-            } min-h-fullrounded-lg p-4`}
-          >
-            <Outlet />
-          </div>
+            {/* Main Content */}
+            <div className="flex-1 min-w-0">
+              <Outlet />
+            </div>
 
-          {/* Right Part: Hidden on xs/sm, visible on md/lg/xl */}
-          <div
-            className={`hidden md:block md:w-4/12 lg:${
-              isCollapsed ? 'w-0' : 'w-2/12'
-            } min-h-full rounded-lg overflow-hidden`}
-          >
-            <RightPart />
+            {/* Right Sidebar */}
+            {!isCollapsed && (
+              <div className="hidden lg:flex w-80 flex-shrink-0">
+                <div className="sticky top-20 w-full">
+                  <RightPart />
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Custom Mobile Navigation */}
-      <div
-        className={`fixed top-0 left-0 h-full bg-white shadow-lg transform transition-transform duration-300 ease-in-out z-50 ${
-          showMobileNav ? 'translate-x-0' : '-translate-x-full'
-        } w-64 overflow-y-auto md:hidden`}
-        onClick={(e) => e.stopPropagation()}
+      {/* Mobile Navigation Drawer */}
+      <Drawer
+        anchor="left"
+        open={showMobileNav}
+        onClose={() => setShowMobileNav(false)}
+        PaperProps={{
+          sx: { width: 280, pt: 10 }
+        }}
       >
-        <button
-          onClick={handleCloseMobileNav}
-          className="absolute top-4 right-4 text-gray-800"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-6 w-6"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
         <Navigation
           isCollapsed={false}
           isNotify={isNotify}
           handleNotify={handleNotify}
-          handleLogout={handleLogout}
-          onTabClick={handleCloseMobileNav}
+          onTabClick={() => setShowMobileNav(false)}
         />
-      </div>
+      </Drawer>
 
-      {/* Overlay for closing menu when clicking outside */}
-      {showMobileNav && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
-          onClick={handleCloseMobileNav}
-        />
-      )}
-
-      {/* Notification (custom style) */}
-      {isNotify && (
-        <div className="fixed top-0 right-0 h-full bg-white shadow-lg w-80 z-50 transform transition-transform duration-300 ease-in-out translate-x-0">
-          <button
-            onClick={handleCloseNotify}
-            className="absolute top-4 right-4 text-gray-800"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-6 w-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-          <Notification />
-        </div>
-      )}
-      {isNotify && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40"
-          onClick={handleCloseNotify}
-        />
-      )}
+      {/* Notification Drawer */}
+      <Drawer
+        anchor="right"
+        open={isNotify}
+        onClose={handleCloseNotify}
+        PaperProps={{
+          sx: { width: { xs: '100%', sm: 400 }, pt: 10 }
+        }}
+      >
+        <Notification />
+      </Drawer>
     </div>
   );
 };

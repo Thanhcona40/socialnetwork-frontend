@@ -40,28 +40,41 @@ const PostDetails = () => {
         onSubmit: (values, action) => {
             dispatch(commentPost(values))
             action.resetForm()
+            setSelectImage("");
         }
     })
 
-    const handleLikePost = () => {
-        dispatch(likePosts(id))
-    }
-
-    const handleRemoveLikePost = () => {
-        dispatch(removelikePosts(id))
-    }
+    const handleLikePost = () => dispatch(likePosts(id))
+    const handleRemoveLikePost = () => dispatch(removelikePosts(id))
 
     const handleImageChange = async (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
         setUploadingImage(true)
-        const imgUrl = await uploadToCloudinary(event.target.files[0])
-        formik.setFieldValue("image", imgUrl) // cho url vao
-        setSelectImage(imgUrl) // cho url vao
-        setUploadingImage(false)
+        try {
+            const imgUrl = await uploadToCloudinary(file);
+            formik.setFieldValue("image", imgUrl);
+            setSelectImage(imgUrl);
+        } catch (error) {
+            console.error("Upload failed:", error);
+        } finally {
+            setUploadingImage(false);
+        }
     }
 
     useEffect(() => {
         dispatch(getPostById(id))
-    }, [])
+    }, [id, dispatch])
+
+    if (!post?.post) {
+        return (
+            <div className="flex justify-center items-center h-screen">
+                <CircularProgress />
+            </div>
+        );
+    }
+
     return (
         <div className='relative h-full'>
             {/* Header */}
@@ -142,6 +155,9 @@ const PostDetails = () => {
                             error={formik.touched.content}
                             fullWidth
                             placeholder="Viết bình luận..."
+                            disabled={uploadingImage}
+                            multiline
+                            maxRows={4}
                             sx={{
                                 '& .MuiOutlinedInput-root': {
                                     backgroundColor: '#f5f5f5',
@@ -152,11 +168,28 @@ const PostDetails = () => {
                         <div className="flex items-center space-x-3">
                             {/* Chọn ảnh */}
                             <label className="cursor-pointer flex items-center text-gray-600 hover:text-gray-800">
-                                <ImageOutlinedIcon />
-                                <input type="file" name="file" className="hidden" onChange={handleImageChange} />
+                                {uploadingImage ? (
+                                    <CircularProgress size={24} />
+                                ) : (
+                                    <ImageOutlinedIcon />
+                                )}
+                                <input 
+                                    type="file" 
+                                    name="file" 
+                                    className="hidden" 
+                                    accept="image/*"
+                                    onChange={handleImageChange}
+                                    disabled={uploadingImage}
+                                />
                             </label>
                             {/* Nút gửi */}
-                            <Button type="submit" variant="contained" color="primary" className="capitalize">
+                            <Button 
+                                type="submit" 
+                                variant="contained" 
+                                color="primary" 
+                                disabled={!formik.values.content.trim() || uploadingImage}
+                                className="capitalize"
+                            >
                                 <SendOutlinedIcon fontSize="small" />
                             </Button>
                         </div>
@@ -165,13 +198,20 @@ const PostDetails = () => {
 
                 {/* Hiển thị ảnh đã chọn */}
                 {selectImage && (
-                    <div className="relative mt-3">
-                        {/* Nút X để xóa ảnh */}
-                        <button onClick={() => setSelectImage(null)} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm shadow-md hover:bg-red-600">
+                    <div className="relative mt-3 inline-block">
+                        <button 
+                            onClick={handleRemoveImage}
+                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm shadow-md hover:bg-red-600 z-10"
+                            type="button"
+                            aria-label="Remove image"
+                        >
                             <CancelOutlinedIcon fontSize="small" />
                         </button>
-                        {/* Hiển thị ảnh */}
-                        <img className="rounded-md border w-24 h-24 object-cover" src={selectImage} alt="Selected" />
+                        <img 
+                            className="rounded-md border w-24 h-24 object-cover" 
+                            src={selectImage} 
+                            alt="Selected preview" 
+                        />
                     </div>
                 )}
             </div>

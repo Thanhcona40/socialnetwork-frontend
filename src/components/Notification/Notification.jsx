@@ -13,7 +13,7 @@ const Notification = () => {
     const navigate = useNavigate()
 
     const getNotify = async () => {
-        const {data} = await api.get(`${API_BASE_URL}/api/notification/listNotify/${auth?.user?.id}`)
+        const {data} = await api.get(`${API_BASE_URL}/api/listNotify/${auth?.user?.id}`)
         setNotificationList(data)
     }
 
